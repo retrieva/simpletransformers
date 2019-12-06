@@ -55,13 +55,16 @@ from simpletransformers.classification.transformer_models.camembert_model import
 
 
 class ClassificationModel:
-    def __init__(self, model_type, model_name, num_labels=None, weight=None, args=None, use_cuda=True):
+    def __init__(self, model_type, model_name_or_path, model_config=None, tokenizer_path=None,
+                 num_labels=None, weight=None, args=None, use_cuda=True):
         """
         Initializes a ClassificationModel model.
 
         Args:
             model_type: The type of model (bert, xlnet, xlm, roberta, distilbert)
-            model_name: Default Transformer model name or path to a directory containing Transformer model file (pytorch_nodel.bin).
+            model_name_or_path: Default Transformer model name or path to a directory containing Transformer model file (pytorch_nodel.bin).
+            model_config(optional): config dict or path to model config json file file if you use path ofr model_name_or_path
+            tokenizer_path(optional): path to tokenizer. you can only use path for model_name_or_path
             num_labels (optional): The number of labels or classes in the dataset.
             weight (optional): A list of length num_labels containing the weights to assign to each label for loss calculation.
             args (optional): Default args will be used if this parameter is not provided. If provided, it should be a dict containing the args that should be changed in the default args.
@@ -80,12 +83,19 @@ class ClassificationModel:
 
         config_class, model_class, tokenizer_class = MODEL_CLASSES[model_type]
         if num_labels:
-            self.config = config_class.from_pretrained(model_name, num_labels=num_labels)
             self.num_labels = num_labels
+            if model_config:
+                self.config = config_class.from_pretrained(model_config, num_labels=num_labels)
+            else:
+                self.config = config_class.from_pretrained(model_name_or_path, num_labels=num_labels)
+
         else:
-            self.config = config_class.from_pretrained(model_name)
+            self.config = config_class.from_pretrained(model_name_or_path)
             self.num_labels = self.config.num_labels
-        self.tokenizer = tokenizer_class.from_pretrained(model_name)
+        if tokenizer_path:
+            self.tokenizer = tokenizer_class.from_pretrained(tokenizer_path)
+        else:
+            self.tokenizer = tokenizer_class.from_pretrained(model_name_or_path)
         self.weight = weight
 
         if use_cuda:
@@ -97,9 +107,9 @@ class ClassificationModel:
             self.device = "cpu"
 
         if self.weight:
-            self.model = model_class.from_pretrained(model_name, config=self.config, weight=torch.Tensor(self.weight).to(self.device))
+            self.model = model_class.from_pretrained(model_name_or_path, config=self.config, weight=torch.Tensor(self.weight).to(self.device))
         else:
-            self.model = model_class.from_pretrained(model_name, config=self.config)
+            self.model = model_class.from_pretrained(model_name_or_path, config=self.config)
 
         self.results = {}
 
@@ -107,13 +117,13 @@ class ClassificationModel:
             'output_dir': 'outputs/',
             'cache_dir': 'cache_dir/',
 
-            'fp16': True,
+            'fp16': False,
             'fp16_opt_level': 'O1',
             'max_seq_length': 128,
-            'train_batch_size': 8,
+            'train_batch_size': 32,
             'gradient_accumulation_steps': 1,
-            'eval_batch_size': 8,
-            'num_train_epochs': 1,
+            'eval_batch_size': 32,
+            'num_train_epochs': 3,
             'weight_decay': 0,
             'learning_rate': 4e-5,
             'adam_epsilon': 1e-8,
@@ -125,11 +135,11 @@ class ClassificationModel:
             'save_steps': 2000,
             'evaluate_during_training': False,
 
-            'overwrite_output_dir': False,
+            'overwrite_output_dir': True,
             'reprocess_input_data': False,
 
             'process_count': cpu_count() - 2 if cpu_count() > 2 else 1,
-            'n_gpu': 1,
+            'n_gpu': -1,
             'use_multiprocessing': True,
             'silent': False,
         }
@@ -140,7 +150,7 @@ class ClassificationModel:
         if args:
             self.args.update(args)
 
-        self.args['model_name'] = model_name
+        self.args['model_name'] = model_name_or_path
         self.args['model_type'] = model_type
 
         if model_type == 'camembert':
@@ -185,7 +195,6 @@ class ClassificationModel:
         else:
             train_examples = [InputExample(i, text, None, label) for i, (text, label) in enumerate(zip(train_df.iloc[:, 0], train_df.iloc[:, 1]))]
 
-        
         train_dataset = self.load_and_cache_examples(train_examples)
         global_step, tr_loss = self.train(train_dataset, output_dir, show_running_loss=show_running_loss, eval_df=eval_df)
 
@@ -199,7 +208,6 @@ class ClassificationModel:
 
         print("Training of {} model complete. Saved to {}.".format(self.args["model_type"], output_dir))
 
-    
     def train(self, train_dataset, output_dir, show_running_loss=True, eval_df=None):
         """
         Trains the model on train_dataset.
@@ -207,7 +215,7 @@ class ClassificationModel:
         Utility function to be used by the train_model() method. Not intended to be used directly.
         """
 
-        tokenizer = self.tokenizer
+        # tokenizer = self.tokenizer
         device = self.device
         model = self.model
         args = self.args
@@ -340,7 +348,6 @@ class ClassificationModel:
 
         return result, model_outputs, wrong_preds
 
-
     def evaluate(self, eval_df, output_dir, multi_label=False, prefix="", **kwargs):
         """
         Evaluates the model on eval_df.
@@ -348,7 +355,7 @@ class ClassificationModel:
         Utility function to be used by the eval_model() method. Not intended to be used directly.
         """
 
-        tokenizer = self.tokenizer
+        # tokenizer = self.tokenizer
         device = self.device
         model = self.model
         args = self.args
@@ -384,12 +391,11 @@ class ClassificationModel:
                 outputs = model(**inputs)
                 tmp_eval_loss, logits = outputs[:2]
 
-                if  multi_label:
+                if multi_label:
                     logits = logits.sigmoid()
                 eval_loss += tmp_eval_loss.mean().item()
 
             nb_eval_steps += 1
-
 
             if preds is None:
                 preds = logits.detach().cpu().numpy()
@@ -415,7 +421,6 @@ class ClassificationModel:
                 writer.write("{} = {}\n".format(key, str(result[key])))
 
         return results, model_outputs, wrong
-
 
     def load_and_cache_examples(self, examples, evaluate=False, no_cache=False, multi_label=False):
         """
@@ -542,11 +547,12 @@ class ClassificationModel:
         args = self.args
 
         self._move_model_to_device()
+        print(to_predict)
 
         if multi_label:
-            eval_examples = [InputExample(i, text, None, [0 for i in range(self.num_labels)]) for i, text in enumerate(to_predict)]
+            eval_examples = [InputExample(i, text.strip(), None, [0 for i in range(self.num_labels)]) for i, text in enumerate(to_predict)]
         else:
-            eval_examples = [InputExample(i, text, None, 0) for i, text in enumerate(to_predict)]
+            eval_examples = [InputExample(i, text.strip(), None, 0) for i, text in enumerate(to_predict)]
 
         eval_dataset = self.load_and_cache_examples(eval_examples, evaluate=True, multi_label=multi_label, no_cache=True)
 
@@ -594,16 +600,13 @@ class ClassificationModel:
 
         return preds, model_outputs
 
-
     def _threshold(self, x, threshold):
         if x >= threshold:
             return 1
         return 0
 
-
     def _move_model_to_device(self):
         self.model.to(self.device)
-
 
     def _get_inputs_dict(self, batch):
         inputs = {

@@ -21,6 +21,7 @@ import os
 import sys
 import csv
 import logging
+import pickle
 
 from io import open
 from multiprocessing import Pool, cpu_count
