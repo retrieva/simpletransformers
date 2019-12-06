@@ -215,7 +215,6 @@ class ClassificationModel:
         Utility function to be used by the train_model() method. Not intended to be used directly.
         """
 
-        # tokenizer = self.tokenizer
         device = self.device
         model = self.model
         args = self.args
@@ -355,7 +354,6 @@ class ClassificationModel:
         Utility function to be used by the eval_model() method. Not intended to be used directly.
         """
 
-        # tokenizer = self.tokenizer
         device = self.device
         model = self.model
         args = self.args
