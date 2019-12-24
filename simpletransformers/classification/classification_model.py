@@ -135,7 +135,7 @@ class ClassificationModel:
             'save_steps': 2000,
             'evaluate_during_training': False,
 
-            'overwrite_output_dir': True,
+            'overwrite_output_dir': False,
             'reprocess_input_data': False,
 
             'process_count': cpu_count() - 2 if cpu_count() > 2 else 1,
