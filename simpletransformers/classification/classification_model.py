@@ -548,9 +548,9 @@ class ClassificationModel:
         print(to_predict)
 
         if multi_label:
-            eval_examples = [InputExample(i, text.strip(), None, [0 for i in range(self.num_labels)]) for i, text in enumerate(to_predict)]
+            eval_examples = [InputExample(i, text, None, [0 for i in range(self.num_labels)]) for i, text in enumerate(to_predict)]
         else:
-            eval_examples = [InputExample(i, text.strip(), None, 0) for i, text in enumerate(to_predict)]
+            eval_examples = [InputExample(i, text, None, 0) for i, text in enumerate(to_predict)]
 
         eval_dataset = self.load_and_cache_examples(eval_examples, evaluate=True, multi_label=multi_label, no_cache=True)
 

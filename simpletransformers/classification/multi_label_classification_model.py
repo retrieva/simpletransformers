@@ -22,7 +22,8 @@ from transformers import (
 
 
 class MultiLabelClassificationModel(ClassificationModel):
-    def __init__(self, model_type, model_name, num_labels=None, pos_weight=None, args=None, use_cuda=True):
+    def __init__(self, model_type, model_name_or_path, model_config=None, tokenizer_path=None,
+                 num_labels=None, pos_weight=None, args=None, use_cuda=True):
         """
         Initializes a MultiLabelClassification model.
 
@@ -45,12 +46,20 @@ class MultiLabelClassificationModel(ClassificationModel):
 
         config_class, model_class, tokenizer_class = MODEL_CLASSES[model_type]
         if num_labels:
-            self.config = config_class.from_pretrained(model_name, num_labels=num_labels)
             self.num_labels = num_labels
+            if model_config:
+                self.config = config_class.from_pretrained(model_config, num_labels=num_labels)
+            else:
+                self.config = config_class.from_pretrained(model_name_or_path, num_labels=num_labels)
+
         else:
-            self.config = config_class.from_pretrained(model_name)
+            self.config = config_class.from_pretrained(model_name_or_path)
             self.num_labels = self.config.num_labels
-        self.tokenizer = tokenizer_class.from_pretrained(model_name)
+
+        if tokenizer_path:
+            self.tokenizer = tokenizer_class.from_pretrained(tokenizer_path)
+        else:
+            self.tokenizer = tokenizer_class.from_pretrained(model_name_or_path)
         self.pos_weight = pos_weight
 
         if use_cuda:
@@ -62,9 +71,9 @@ class MultiLabelClassificationModel(ClassificationModel):
             self.device = "cpu"
 
         if self.pos_weight:
-            self.model = model_class.from_pretrained(model_name, config=self.config, pos_weight=torch.Tensor(self.pos_weight).to(self.device))
+            self.model = model_class.from_pretrained(model_name_or_path, config=self.config, pos_weight=torch.Tensor(self.pos_weight).to(self.device))
         else:
-            self.model = model_class.from_pretrained(model_name, config=self.config)
+            self.model = model_class.from_pretrained(model_name_or_path, config=self.config)
 
         self.results = {}
 
@@ -107,7 +116,7 @@ class MultiLabelClassificationModel(ClassificationModel):
         if args:
             self.args.update(args)
 
-        self.args["model_name"] = model_name
+        self.args["model_name"] = model_name_or_path
         self.args["model_type"] = model_type
 
     def train_model(self, train_df, multi_label=True, eval_df=None, output_dir=None, show_running_loss=True, args=None):
