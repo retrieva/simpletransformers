@@ -16,8 +16,8 @@ def main():
     this example is second type.
     """
 
-    df_train = pd.read_csv('/data/language/corpus/livedoor_news/train.tsv', delimiter='\t')
-    df_dev = pd.read_csv('/data/language/corpus/livedoor_news/dev.tsv', delimiter='\t')
+    df_train = pd.read_csv('/data/bert/livedoor_news/train.tsv', delimiter='\t')
+    df_dev = pd.read_csv('/data/bert/livedoor_news/dev.tsv', delimiter='\t')
 
     # only number label is allowed so convert.
     labels, uniques = pd.factorize(df_train.loc[:, 'label'])
@@ -27,14 +27,16 @@ def main():
     label_num = len(uniques)
 
     # model_path for fine-tune
-    model_path = '/data/language/bert/model_wiki_128/model.pytorch-1400000'
+    model_path = '/data/bert/model/wiki_asahi/512/pytorch_model-300000.bin'
 
     # model_path for evaluate
     # model_path = './outputs/'
-    config_path = '/data/language/bert/model_wiki_128/bert_config.json'
-    tokenizer_path = '/data/language/bert/model_wiki_128/wiki-ja.model'
+    config_path = '/data/bert/model/512/bert_config.json'
+    tokenizer_path = '/data/bert/model/wiki_asahi/wiki_asahi.model'
 
-    model = ClassificationModel('bert', model_path, config_path, tokenizer_path, num_labels=label_num)
+    model = ClassificationModel('bert', model_path, config_path, tokenizer_path, num_labels=label_num,
+                                args={'output_dir': './livedoor', 'num_train_epochs': 5, 'max_seq_length': 512, 'train_batch_size': 16,
+                                      'overwrite_output_dir': True})
 
     model.train_model(df_train, show_running_loss=False)
 
